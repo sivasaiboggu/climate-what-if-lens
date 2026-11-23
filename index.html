@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Climate What-If Lens — same address, two futures</title>
+<meta name="description" content="Pick an address and see what heat and flooding could look like there in 2030, 2040 or 2050. Real CMIP6 heat data, screening flood estimate, sources on screen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <h1>Climate <span>What-If</span> Lens</h1>
+      <p>Same address, two futures.</p>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="settingsBtn" type="button">Settings</button>
+      <button class="btn" id="copyBtn" type="button">Copy summary</button>
+      <button class="btn primary" id="downloadBtn" type="button">Download city data (JSON)</button>
+    </div>
+  </div>
+</header>
+
+<div class="disclaimer"><div class="disclaimer-in">
+  <strong>Flood layer: screening estimate, not an engineering prediction.</strong>
+  It shows land below a scenario water level using elevation data. It ignores levees,
+  drainage, tides and defences, and it is wrong at building level. Heat numbers are
+  CMIP6 model projections, not measurements.
+</div></div>
+
+<main>
+  <!-- Controls -->
+  <section class="col" aria-label="Controls">
+    <div class="card">
+      <h2>Pick a place</h2>
+      <p class="hint">Eight seeded cities work fully offline. Any other address tries a live lookup — heat only.</p>
+      <label class="fl" for="searchInput">Address or city</label>
+      <div class="search-row">
+        <input id="searchInput" type="text" placeholder="e.g. Bandra West, Mumbai" autocomplete="off">
+        <button class="btn primary" id="searchBtn" type="button">Look up</button>
+      </div>
+      <p class="status" id="searchStatus" role="status"></p>
+      <label class="fl">Seeded cities</label>
+      <div class="city-list" id="cityList"></div>
+    </div>
+
+    <div class="card">
+      <h2>Year and scenario</h2>
+      <div class="year-row"><label class="fl" for="yearSlider">Year</label><strong id="yearRead">2025</strong></div>
+      <input type="range" id="yearSlider" min="0" max="3" step="1" value="0"
+        aria-label="Year: 2025, 2030, 2040 or 2050">
+      <div class="year-read"><span>2025</span><span>2030</span><span>2040</span><span>2050</span></div>
+      <label class="fl">Emissions scenario</label>
+      <div class="seg" role="group" aria-label="Emissions scenario">
+        <button type="button" id="ssp245" aria-pressed="true">SSP2-4.5 · middle of the road</button>
+        <button type="button" id="ssp585" aria-pressed="false">SSP5-8.5 · high emissions</button>
+      </div>
+      <p class="note">The scenario changes the flood water level. The heat curve is the same
+        CMIP6 ensemble for both: Open-Meteo notes scenario differences are small
+        until 2050 and the high-resolution models sit close to RCP8.5.</p>
+      <label class="fl">Map layer</label>
+      <div class="seg" role="group" aria-label="Map layer">
+        <button type="button" id="layerFlood" aria-pressed="false">Flood</button>
+        <button type="button" id="layerHeat" aria-pressed="false">Heat</button>
+        <button type="button" id="layerBoth" aria-pressed="true">Both</button>
+      </div>
+      <div class="switch-row">
+        <span>Compare with 2025<small>Baseline numbers beside the selected year.</small></span>
+        <button type="button" class="toggle" id="compareToggle" aria-pressed="false" aria-label="Compare with 2025"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Map -->
+  <section class="col" aria-label="Map">
+    <div class="card map-card">
+      <div class="map-head">
+        <h2 id="mapTitle">Mumbai, India</h2>
+        <span class="coords" id="mapCoords"></span>
+        <span class="water-badge" id="waterBadge"></span>
+      </div>
+      <svg id="map" viewBox="0 0 500 420" role="img" aria-label="Elevation grid map with flood overlay"></svg>
+      <div class="map-foot">
+        <span class="legend"><span class="sw" style="background:#7CC4D6"></span>Flooded, shallow</span>
+        <span class="legend"><span class="sw" style="background:#0E5A6E"></span>Flooded, deep</span>
+        <span class="legend"><span class="sw" style="background:#F6D9B8"></span>Hotter ground (more days ≥35 °C)</span>
+        <span class="legend"><span class="sw" style="background:#EAF2F2"></span>Higher ground</span>
+      </div>
+      <p class="map-note">Schematic map — a 10 × 10 elevation grid around the city centre, coastline
+        simplified, not for navigation. Each cell is about 4 km across. Sea is shown on the
+        side the city faces; the grid itself comes from real elevation data.</p>
+    </div>
+    <div class="card">
+      <h2>What this is, and what it is not</h2>
+      <p class="hint">Read this before you judge anything on screen.</p>
+      <ul class="sources">
+        <li><strong>Heat is real model data.</strong> Open-Meteo Climate API, CMIP6 models
+          CMCC_CM2_VHR4 and EC_Earth3P_HR averaged, ~10 km resolution, daily 1950–2050.</li>
+        <li><strong>Flood is a screening estimate.</strong> Bathtub method: land below the
+          scenario water level, from 90 m elevation data. No hydrodynamic modelling.</li>
+        <li><strong>Scenario water levels</strong> are planning levels for a severe
+          event (2025: 1 m; 2030: 1 / 2 m; 2040: 2 / 3 m; 2050: 2 / 4 m for
+          SSP2-4.5 / SSP5-8.5): IPCC AR6 global-mean sea-level rise to 2050
+          (~0.2–0.3 m) plus a local high-tide / storm-surge allowance. Not a
+          mean sea-level projection, and not a local projection. Flooded cells
+          are shaded by depth: pale blue is shallow, dark blue is deep.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Numbers -->
+  <section class="col right-col" aria-label="Results">
+    <div class="card">
+      <h2 id="panelTitle">Heat in 2025</h2>
+      <p class="hint">Average of two CMIP6 models. Windows: 10-year averages around the year shown; baseline 1991–2020.</p>
+      <div class="stat-grid">
+        <div class="stat"><div class="v" id="stat35">–</div><div class="k">days a year ≥35 °C</div><div class="d" id="delta35"></div></div>
+        <div class="stat"><div class="v" id="stat40">–</div><div class="k">days a year ≥40 °C</div><div class="d" id="delta40"></div></div>
+        <div class="stat"><div class="v" id="statHot">–</div><div class="k">hottest-month mean max</div><div class="d" id="deltaHot"></div></div>
+        <div class="stat"><div class="v" id="statMean">–</div><div class="k">annual mean temperature</div><div class="d" id="deltaMean"></div></div>
+      </div>
+      <p class="compare-line" id="compareLine"></p>
+    </div>
+
+    <div class="card">
+      <h2>Flood in this scenario</h2>
+      <p class="hint" id="floodHint"></p>
+      <div class="stat-grid">
+        <div class="stat"><div class="v" id="statFloodPct">–</div><div class="k">of mapped area below the water level</div></div>
+        <div class="stat"><div class="v" id="statFloodCells">–</div><div class="k">grid cells flooded (of 100)</div></div>
+      </div>
+      <p class="note" id="floodNote"></p>
+    </div>
+
+    <div class="card">
+      <h2>Days ≥35 °C a year</h2>
+      <p class="hint">Model average, by year window.</p>
+      <div class="chart" id="chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>In plain words</h2>
+      <p class="summary" id="summary"></p>
+      <p class="summary-src" id="summarySrc"></p>
+      <p class="status" id="geminiStatus" role="status"></p>
+    </div>
+
+    <div class="card">
+      <h2>Sources</h2>
+      <ul class="sources">
+        <li>Heat: Open-Meteo Climate API (<code>climate-api.open-meteo.com/v1/climate</code>), CMIP6, daily 1950–2050, ~10 km, bias-corrected vs ERA5. Models: CMCC_CM2_VHR4, EC_Earth3P_HR.</li>
+        <li>Elevation: Open-Meteo Elevation API (90 m SRTM-derived), 10 × 10 grid per city.</li>
+        <li>Geocoding: OpenStreetMap Nominatim — max 1 request/second, results cached, no autocomplete (usage policy).</li>
+        <li>Sea level context: IPCC AR6 global-mean rise to 2050, ~0.2–0.3 m across SSPs.</li>
+        <li>Basemap data © OpenStreetMap contributors (schematic rendering; no tiles loaded).</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer>Climate What-If Lens · Built for a hackathon demo · Data cached 23 Nov 2026 · Flood layer is a screening estimate, not an engineering prediction.</footer>
+
+<dialog id="settingsDlg">
+  <div class="dlg-in">
+    <h2>Settings</h2>
+    <p>Optional: paste your own free Gemini API key for a live one-paragraph summary.
+      It is stored only in this browser (localStorage) and sent only to Google's API.
+      Without a key, the summary is computed from the numbers on screen and labelled as cached.</p>
+    <label class="fl" for="geminiKey">Gemini API key</label>
+    <input id="geminiKey" type="password" placeholder="AIza…" autocomplete="off">
+    <div class="dlg-actions">
+      <button class="btn" id="clearKeyBtn" type="button">Remove key</button>
+      <button class="btn" id="closeSettingsBtn" type="button">Close</button>
+      <button class="btn primary" id="saveKeyBtn" type="button">Save key</button>
+    </div>
+    <p class="status" id="keyStatus" role="status"></p>
+  </div>
+</dialog>
+
+<script src="data/cities.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
