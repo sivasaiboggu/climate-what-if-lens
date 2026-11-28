@@ -75,10 +75,11 @@ no glows, no cliché copy.
 
 ## Tests
 
-`node --test tests/test.js` — **13 tests, 13 pass, 0 fail.** Tests run the
+`node --test tests/test.js` — **17 tests, 17 pass, 0 fail.** Tests run the
 shipped pure functions (extracted from `app.js`) against the real cached data:
 data integrity, model-average consistency, bathtub math, scenario monotonicity,
-summary wording, seeded-city matching, and no-fake-data / no-gradient checks.
+summary wording, seeded-city matching, search-status styling, copy failure
+handling, and no-fake-data / no-gradient checks.
 
 ## Demo script (2 minutes)
 

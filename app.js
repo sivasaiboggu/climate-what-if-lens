@@ -80,6 +80,13 @@
   var state = { cityId: 'mumbai', year: '2025', scenario: 'SSP2-4.5', layer: 'both', compare: false, liveHeat: null };
 
   function $(id) { return document.getElementById(id); }
+  // One place that writes the search status, so a failed lookup can never
+  // leave the red error style stuck on a later success message.
+  function setSearchStatus(msg, isError) {
+    var node = $('searchStatus');
+    node.textContent = msg;
+    node.className = isError ? 'status error' : 'status';
+  }
   function city() { return DATA[state.cityId]; }
   function avg() {
     if (state.liveHeat) return state.liveHeat;
@@ -261,19 +268,19 @@
     $('layerBoth').setAttribute('aria-pressed', state.layer === 'both' ? 'true' : 'false');
     $('compareToggle').setAttribute('aria-pressed', state.compare ? 'true' : 'false');
   }
-  function selectCity(id) { state.cityId = id; state.liveHeat = null; $('searchStatus').textContent = ''; renderAll(); }
+  function selectCity(id) { state.cityId = id; state.liveHeat = null; setSearchStatus('', false); renderAll(); }
 
   /* ---- search: seeded match first, then live Nominatim (1 req/s policy) ---- */
   var lastGeocode = 0;
   $('searchBtn').addEventListener('click', function () {
     var q = $('searchInput').value;
     var hit = matchSeededCity(q);
-    if (hit) { state.liveHeat = null; selectCity(hit.id); $('searchStatus').textContent = 'Seeded city: ' + hit.name + '. Full flood + heat available.'; return; }
-    if (!q.trim()) { $('searchStatus').textContent = 'Type an address or pick a seeded city below.'; return; }
+    if (hit) { state.liveHeat = null; selectCity(hit.id); setSearchStatus('Seeded city: ' + hit.name + '. Full flood + heat available.', false); return; }
+    if (!q.trim()) { setSearchStatus('Type an address or pick a seeded city below.', false); return; }
     var now = Date.now();
-    if (now - lastGeocode < 1100) { $('searchStatus').textContent = 'Please wait a second between lookups (Nominatim allows 1 request/second).'; return; }
+    if (now - lastGeocode < 1100) { setSearchStatus('Please wait a second between lookups (Nominatim allows 1 request/second).', false); return; }
     lastGeocode = now;
-    $('searchStatus').textContent = 'Looking up "' + q + '"…';
+    setSearchStatus('Looking up "' + q + '"…', false);
     var cache = {};
     try { cache = JSON.parse(localStorage.getItem('cwl.geocodeCache') || '{}'); } catch (e) { cache = {}; }
     function useResult(lat, lon, name) {
@@ -293,11 +300,10 @@
           annual_mean: +(tmean.reduce(function (a, b) { return a + b; }, 0) / tmean.length).toFixed(1)
         };
         // keep the nearest seeded city as the map base, flag live heat
-        $('searchStatus').textContent = 'Found ' + name + ' (' + lat.toFixed(3) + ', ' + lon.toFixed(3) + '). Heat is live; flood overlay is not available for unseeded addresses.';
+        setSearchStatus('Found ' + name + ' (' + lat.toFixed(3) + ', ' + lon.toFixed(3) + '). Heat is live; flood overlay is not available for unseeded addresses.', false);
         renderAll();
       }).catch(function () {
-        $('searchStatus').textContent = 'Found the address, but the live heat lookup failed (offline?). Try a seeded city.';
-        $('searchStatus').className = 'status error';
+        setSearchStatus('Found the address, but the live heat lookup failed (offline?). Try a seeded city.', true);
       });
     }
     if (cache[q.toLowerCase()]) {
@@ -307,14 +313,13 @@
     fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q), {
       headers: { 'Accept': 'application/json' }
     }).then(function (r) { return r.json(); }).then(function (arr) {
-      if (!arr || !arr.length) { $('searchStatus').textContent = 'No match for "' + q + '". Try a seeded city below.'; return; }
+      if (!arr || !arr.length) { setSearchStatus('No match for "' + q + '". Try a seeded city below.', true); return; }
       var g = arr[0];
       cache[q.toLowerCase()] = { lat: +g.lat, lon: +g.lon, name: g.display_name };
       try { localStorage.setItem('cwl.geocodeCache', JSON.stringify(cache)); } catch (e) { /* storage full/blocked */ }
       useResult(+g.lat, +g.lon, g.display_name);
     }).catch(function () {
-      $('searchStatus').textContent = 'Lookup failed — you appear to be offline. The 8 seeded cities still work without a connection.';
-      $('searchStatus').className = 'status error';
+      setSearchStatus('Lookup failed — you appear to be offline. The 8 seeded cities still work without a connection.', true);
     });
   });
   $('searchInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('searchBtn').click(); } });
@@ -331,7 +336,8 @@
   $('copyBtn').addEventListener('click', function () {
     var text = $('summary').textContent;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { $('geminiStatus').textContent = 'Summary copied.'; });
+      navigator.clipboard.writeText(text).then(function () { $('geminiStatus').textContent = 'Summary copied.'; })
+        .catch(function () { $('geminiStatus').textContent = 'Copy failed — select the summary text manually.'; });
     } else { $('geminiStatus').textContent = 'Copy not available in this browser — select the summary text manually.'; }
   });
   $('downloadBtn').addEventListener('click', function () {

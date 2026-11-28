@@ -129,6 +129,19 @@ test('matchSeededCity: finds seeded cities by name fragment, rejects others', ()
   assert.equal(P.matchSeededCity(''), null);
 });
 
+test('app.js: search status never keeps the error style after a later success', () => {
+  // Regression: a failed lookup set className 'status error' and later success
+  // messages only replaced the text, so they stayed red until reload.
+  assert.ok(appSrc.includes('function setSearchStatus(msg, isError)'), 'single status helper exists');
+  assert.ok(!/\$\('searchStatus'\)\.textContent/.test(appSrc), 'no direct status text writes bypass the helper');
+  assert.ok(appSrc.includes("setSearchStatus('Seeded city: '") && appSrc.includes(", false)"), 'success paths reset the status class');
+  assert.ok(appSrc.includes("setSearchStatus('Lookup failed"), 'failure paths still mark the error class');
+});
+
+test('app.js: copy failure is reported, not swallowed', () => {
+  assert.ok(appSrc.includes("Copy failed — select the summary text manually."), 'clipboard rejection shows a message');
+});
+
 test('years: slider covers 2025, 2030, 2040, 2050', () => {
   assert.deepEqual(P.YEARS, ['2025', '2030', '2040', '2050']);
 });
